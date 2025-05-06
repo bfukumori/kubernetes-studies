@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-name
+spec:
+  replicas: 6
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 10%
+      maxSurge: 20%
+  selector:
+    matchLabels:
+      api: app-name
+  template:
+    metadata:
+      labels:
+        api: app-name
+    spec:
+      containers:
+        - name: app-name
+          image: container-registry-name/app-name:v1
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: app-name-configmap
+            - secretRef:
+                name: app-name-secret
+          # env:
+          #   - name: APP
+          #     valueFrom:
+          #       configMapKeyRef:
+          #         name: app-name-configmap
+          #         key: app-name
+          #   - name: APP_KEY
+          #     valueFrom:
+          #       secretKeyRef:
+          #         name: app-name-secret
+          #         key: api-key
+          ports:
+            - containerPort: 3333
+          startupProbe:
+            # exec:
+            #   command:
+            #     - /bin/sh
+            #     - -c
+            #     - |
+            #       echo "Waiting for the application to start..."
+            #       while ! nc -z localhost 3333; do sleep 1; done
+            #       echo "Application started"
+            httpGet:
+              path: /healthz
+              port: 3333
+            failureThreshold: 3
+            successThreshold: 1
+            timeoutSeconds: 1
+            periodSeconds: 10
+            initialDelaySeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 3333
+            failureThreshold: 3
+            successThreshold: 1
+            timeoutSeconds: 1
+            periodSeconds: 15
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3333
+            failureThreshold: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+            periodSeconds: 10
+            initialDelaySeconds: 5
+          resources:
+            requests:
+              cpu: 400m
+              memory: 128Mi
+            limits:
+              cpu: 700m
+              memory: 256Mi
+          volumeMounts:
+            - name: app-name-volume
+              mountPath: /usr/src/app/uploads
+      volumes:
+        - name: app-name-volume
+          persistentVolumeClaim:
+            claimName: app-name-pvc
